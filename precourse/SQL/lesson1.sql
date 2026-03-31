@@ -1,0 +1,12 @@
+CREATE TABLE users (
+	id SERIAL PRIMARY KEY,
+	username VARCHAR(50) NOT NULL UNIQUE,
+	email VARCHAR(100) UNIQUE,
+	age INT,
+	created_at TIMESTAMP
+);
+
+SELECT *
+	FROM users;
+
+DROP TABLE users;
