@@ -10,32 +10,37 @@
 //     // alert(sum)
 //     count++;
 // }
-document.write('789');
+
 console.log('main.js')
 
-const INITIAL_ENERGY = 10
-const MIN_ENERGY = 0
-const LOW_ENERGY_THRESHOLD = 3 // THRESHOLD(англ.) - порог
+function lesson1(){
 
-let energy = INITIAL_ENERGY
+    const INITIAL_ENERGY = 10
+    const MIN_ENERGY = 0
+    const LOW_ENERGY_THRESHOLD = 3 // THRESHOLD(англ.) - порог
 
-while (energy >= MIN_ENERGY) {
-    console.log(`Текущий уровень энергии: ${energy}`)
+    let energy = INITIAL_ENERGY
 
-    if (energy === MIN_ENERGY) {
-        console.log("Робот грустит... 😢 Нужно подзарядить!");
-        break;
+    while (energy >= MIN_ENERGY) {
+        console.log(`Текущий уровень энергии: ${energy}`)
 
-    } else
+        if (energy === MIN_ENERGY) {
+            console.log("Робот грустит... 😢 Нужно подзарядить!");
+            break;
 
-    if (energy <= LOW_ENERGY_THRESHOLD) {
-        console.log("Робот начинает чувствовать усталость... 🥱")
-    } else {
-        console.log("Робот счастлив и бодрствует! 😊")
+        } else
+
+        if (energy <= LOW_ENERGY_THRESHOLD) {
+            console.log("Робот начинает чувствовать усталость... 🥱")
+        } else {
+            console.log("Робот счастлив и бодрствует! 😊")
+        }
+
+        energy--;
+
     }
 
-    energy--;
-
+    console.log("Программа завершена. Робот отдыхает.")
 }
 
-console.log("Программа завершена. Робот отдыхает.")
+lesson1()
