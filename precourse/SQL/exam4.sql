@@ -24,8 +24,12 @@
 
 
 -- Твой ответ:
-SELECT authors.name, books.title  FROM authors INNER JOIN books ON author.id=books.author_id;
-
+SELECT authors.name, books.title FROM authors INNER JOIN books ON authors.id = books.author_id;
+--  была опечатка в uthors 
+-- Попробовать:
+SELECT name, title
+FROM authors
+INNER JOIN books ON authors.id = books.author_id;
 
 -------------------------------------------------------------
 -- 6 Вопрос:
@@ -43,6 +47,8 @@ WHERE orders.id xxx;
 
 -- Твой ответ:
 NOT NULL
+-- а надо:
+IS NOT NULL
 
 
 -------------------------------------------------------------
@@ -60,6 +66,9 @@ SELECT * FROM users xxx orders ON users.id = orders.user_id;
 
 INNER JOIN
 
+-- а надо:
+LEFT JOIN
+
 
 
 -------------------------------------------------------------
@@ -74,3 +83,6 @@ INNER JOIN
 
 -- Твой ответ:
 -- да
+
+-- а надо:
+-- нет
