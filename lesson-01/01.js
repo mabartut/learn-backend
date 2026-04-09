@@ -1,11 +1,14 @@
 // С помощью цикла while найдите сумму чисел от 1 до 20
 // Результат присвойте переменной sum
+let n = 1
+let res = 0
 
-// your code
-let sum=0
-let n=1
-
-while (n<=20) {
-    sum+=n
+while (n <= 20) {
+    res += n
     n++
 }
+
+// your code
+let sum = res
+console.log(sum)
+
