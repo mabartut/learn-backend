@@ -6,4 +6,11 @@
 */
 
 // your code
-let factorial
+let n = 1
+let res=1
+while (n<=10) {
+    res *= n
+    n++
+}
+let factorial=res
+alert(factorial)
