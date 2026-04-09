@@ -5,5 +5,18 @@
  */
 
 const score = 70 // тестовое значение, можно изменять
-let grade
+let grade = 'F'
+
+if (score > 49) {
+    grade = 'D'
+}
+if (score > 69) {
+    grade = 'C'
+}
+if (score > 79) {
+    grade = 'B'
+}
+if (score > 89) {
+    grade = 'A'
+}
 // your code
