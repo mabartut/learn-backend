@@ -13,4 +13,3 @@ while (n<=10) {
     n++
 }
 let factorial=res
-alert(factorial)
