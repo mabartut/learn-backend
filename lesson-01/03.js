@@ -15,4 +15,3 @@ while (n <= 20) {
 }
 
 let sum = res
-console.log(sum)
