@@ -11,15 +11,26 @@
 */
 
 const game = {
-  resources: {
-    gold: 250,
-    lumber: 100,
-  },
-  addResource(resource,amount) {
-    if (this.resources.hasOwnProperty(resource) ) {
-      this.resources[resource] += amount
-    } else {
-      console.log("Invalid resource")
+    resources: {
+        gold: 250,
+        lumber: 100,
+    },
+    addResource(resource, amount) {
+        if (this.resources.hasOwnProperty(resource)) {
+            this.resources[resource] += amount
+        } else {
+            console.log("Invalid resource")
+        }
     }
-  }
 }
+
+const studyTimer = {
+    topic: 'Web Development',
+    hoursSpent: 0,
+    // Метод для добавления времени учебы
+    addStudyTime(hours) {
+        this.hoursSpent += hours;
+    }
+}
+
+studyTimer.addStudyTime(22)
