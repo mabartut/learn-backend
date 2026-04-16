@@ -25,8 +25,8 @@ console.log(oddNumbers) // Должен вывести: [1, 3, 5]
 
 const filter = (arr, cb) => {
     const res = []
-    arr.forEach((el) => {
-        if (cb(el)) {
+    arr.forEach((el,i) => {
+        if (cb(el,i)) {
             res.push(el)
         }
     })
