@@ -19,7 +19,7 @@
 
 .message-box.success {
   border-color: var(--color-success);
-  color var(--color-success);
+  color: var(--color-success);
 }
 
 .message-box.error {
