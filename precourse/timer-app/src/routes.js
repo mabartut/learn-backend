@@ -4,9 +4,20 @@ import {getAllTimes, saveCurrentTime, deleteTimeById, updateTimeById} from './re
 export async function router(req, res) {
     const url = parse(req.url || '', true);
     const method = req.method;
+    const dateValidation = (str)=>{
+        const date = new Date(str)
+        let isDateValid = false
+
+        if (!Number.isNaN(date.getTime())) {
+            isDateValid = date.toISOString() === str
+        }
+        return isDateValid
+    }
 
     if (url.pathname === '/timer' && method === 'GET') {
-        const times = await getAllTimes();
+        const from = dateValidation( url.query.from) ? url.query.from : undefined ;
+        const to = dateValidation( url.query.to) ? url.query.to : undefined ;
+        const times = await getAllTimes(from, to);
 
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.end(JSON.stringify(times));
@@ -40,12 +51,7 @@ export async function router(req, res) {
             return;
         }
 
-        const date = new Date(saved_at)
-        let isDateValid = false
-
-        if (!Number.isNaN(date.getTime())) {
-            isDateValid = date.toISOString() === saved_at
-        }
+        let isDateValid = dateValidation(saved_at)
 
         if (isDateValid) {
             res.writeHead(200, {'Content-Type': 'application/json'});
