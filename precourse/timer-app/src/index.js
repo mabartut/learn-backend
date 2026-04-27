@@ -3,6 +3,9 @@ import {router} from "./routes.js";
 
 const port = Number(process.env.PORT) || 3000;
 
+console.log('===============================index.js')
+console.clear()
+
 const server = http.createServer((req, res) => {
     // ✅ Разрешаем запросы от любых источников
     res.setHeader('Access-Control-Allow-Origin', '*');
