@@ -7,6 +7,8 @@
 // res.end(YYY);
 // Твой ответ:
 //     'application/json' JSON.stringify({"status": "ok"})
+
+// совпадает с ИИ
 //
 //
 // /////////////////////////
@@ -19,5 +21,8 @@
 //     YYY
 //     res.end('Method Not Allowed');
 // }
-// Твой ответ:
-//     'GET' res.writeHead(405, {'Content-Type': 'text/plain'})
+// // Твой ответ:
+// //     'GET' res.writeHead(405, {'Content-Type': 'text/plain'})
+//
+// а надо видимо
+// 'GET' res.statusCode = 405;
