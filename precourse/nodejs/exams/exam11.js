@@ -7,9 +7,8 @@
 // res.end(YYY);
 // Твой ответ:
 //     'application/json' JSON.stringify({"status": "ok"})
-
 // совпадает с ИИ
-//
+//  'application/json' JSON.stringify({"status":"ok"})
 //
 // /////////////////////////
 // Вопрос6:

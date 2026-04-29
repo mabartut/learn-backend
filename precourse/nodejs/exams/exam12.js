@@ -2,16 +2,12 @@
 //
 //     Отправь JSON с правильным Content-Type
 //
-//
-//
 // const result = {status: 'Ok'};
 // res.writeHead(200, { 'Content-Type': XXX });
 // res.end(YYY);
 // Твой ответ:
-//
-//
-//     'application/json' JSON.stringify({"status": "Ok"}
-//
+////     'application/json' JSON.stringify({"status": "Ok"}
+//ИИ 'application/json' JSON.stringify(result)
 //
 // Вопрос2:
 //
@@ -42,17 +38,16 @@
 //
 // Твой ответ:
 //     try catch
-//
+//// а надо видимо
+// // 500 try catch
 //
 // Вопрос8:
 //
 //     Верни ошибку клиента и JSON {"error":"Bad Request"}
-//
-//
-//
 // res.writeHead(XXX, { 'Content-Type': 'application/json' });
 // res.end(YYY);
 // Твой ответ:
 //
-//
 //     500 JSON.stringify({"error":"Bad Request"})
+// а надо видимо
+// 400 JSON.stringify({"error":"Bad Request"})
