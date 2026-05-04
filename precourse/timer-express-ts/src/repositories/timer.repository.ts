@@ -1,75 +1,58 @@
-import { pool } from "../db";
+import {pool} from "../db";
 
 /** Как выглядит строка в таблице times. */
 export type TimeRowDb = {
     id: number;
-    saved_at: Date; // pg вернёт JS Date;
+    saved_at: Date;
 };
 
 /** Пример: создание записи (остальные методы — аналогично, но реализуешь сам). */
-// export async function saveCurrentTime(): Promise<TimeRowDb> {
-//     const result = await pool.query<TimeRowDb>(
-//         "INSERT INTO times (saved_at) VALUES (NOW()) RETURNING *"
-//     );
-//     return result.rows[0];
-// }
-//
-// // TODO: реализуй и типизируй остальные:
-//
-// export async function getAllTimes(params: { from?: string; to?: string }): Promise<any> {
-//
-// }
+export async function saveCurrentTime(): Promise<TimeRowDb> {
+    const result = await pool.query<TimeRowDb>(
+        "INSERT INTO times (saved_at) VALUES (NOW()) RETURNING *"
+    );
+    return result.rows[0];
+}
 
-// export async function deleteTimeById(id: number): ... { ... }
-
-// export async function updateTimeById(id: number, newTimestampIso: string): ... { ... }
-
-export async function getAllTimes({from, to}: { from: string | undefined, to: string | undefined }) {
+export async function getAllTimes(args: { from?: string; to?: string }): Promise<Array<TimeRowDb>> {
     let query = 'SELECT * FROM times';
     const params = [];
     const conditions = [];
+    const {from, to} = args;
 
-    // Добавляем условия только если параметры есть
     if (from && to) {
-        conditions.push(`saved_at > $${params.length + 1} AND saved_at < $${params.length + 2}`);
+        conditions.push(`saved_at > $1 AND saved_at < $2`);
         params.push(from, to);
     } else if (from) {
-        conditions.push(`saved_at > $${params.length + 1}`);
+        conditions.push(`saved_at > $1`);
         params.push(from);
     } else if (to) {
-        conditions.push(`saved_at < $${params.length + 1}`);
+        conditions.push(`saved_at < $1`);
         params.push(to);
     }
 
-    // Добавляем WHERE если есть условия
     if (conditions.length > 0) {
         query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    // Сортировка
     query += ' ORDER BY id DESC';
-    console.log(`query: ${JSON.stringify(query)}`);
-    console.log('params=', params);
-    const result = await pool.query(query, params);
+    const result = await pool.query<TimeRowDb>(query, params);
     return result.rows;
 }
 
-export async function saveCurrentTime() {
-    const result = await pool.query(`INSERT INTO times (saved_at)
-                                     VALUES (NOW()) RETURNING *`);
+export async function deleteTimeById(id: number): Promise<TimeRowDb> {
+    const result = await pool.query<TimeRowDb>(
+        `DELETE
+         FROM times
+         WHERE id = $1
+         RETURNING *`, [id]);
     return result.rows[0];
 }
 
-export async function deleteTimeById(id: string) {
-    await pool.query(`DELETE
-                      FROM times
-                      WHERE id = $1`, [id]);
-}
-
-export async function updateTimeById(id: string, newTimestamp: string) {
-    const result = await pool.query(
+export async function updateTimeById(id: number, newTimestampIso: string): Promise<TimeRowDb> {
+    const result = await pool.query<TimeRowDb>(
         'UPDATE times SET saved_at = $2 WHERE id = $1 RETURNING *',
-        [id, newTimestamp]
+        [id, newTimestampIso]
     );
     return result.rows[0];
 }
