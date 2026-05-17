@@ -1,5 +1,5 @@
 // src/repositories/projects.repository.ts
-import { pool } from "../db";
+import {pool} from "../db";
 
 /**
  * Строка из таблицы `projects` в том виде, как её возвращает драйвер `pg` по умолчанию.
@@ -49,41 +49,25 @@ export type ProjectFilter = {
 export async function listProjects(
     filter: ProjectFilter = {}
 ): Promise<ProjectRowDb[]> {
-    const { name, status } = filter;
+    const {name, status} = filter;
+    const values = []
+    let query = 'SELECT * FROM projects '
 
-    if (!name && !status) {
-        const { rows } = await pool.query<ProjectRowDb>(
-            `SELECT * FROM projects ORDER BY id DESC`
-        );
-        return rows;
+    if (name && !status) {
+        query += 'WHERE name ILIKE $1 '
+        values.push(`%${name}%`)
     }
-
-    if (!name) {
-        const { rows } = await pool.query<ProjectRowDb>(
-            `SELECT * FROM projects
-             WHERE status = $1
-             ORDER BY id DESC`,
-            [status]
-        );
-        return rows;
+    if (!name && status) {
+        query += 'WHERE status = $1 '
+        values.push(status)
     }
-
-    if (!status) {
-        const { rows } = await pool.query<ProjectRowDb>(
-            `SELECT * FROM projects
-             WHERE name ILIKE $1
-             ORDER BY id DESC`,
-            [`%${name}%`]
-        );
-        return rows;
+    if (name && status) {
+        query += 'WHERE name ILIKE $1 AND status = $2 '
+        values.push(`%${name}%`, status)
     }
+    query += 'ORDER BY id DESC'
 
-    const { rows } = await pool.query<ProjectRowDb>(
-        `SELECT * FROM projects
-       WHERE name ILIKE $1 AND status = $2
-     ORDER BY id DESC`,
-        [`%${name}%`, status]
-    );
+    const {rows} = await pool.query<ProjectRowDb>(query, values);
     return rows;
 }
 
@@ -97,10 +81,10 @@ export async function listProjects(
 export async function createProject(
     data: NewProjectInput
 ): Promise<ProjectRowDb> {
-    const { rows } = await pool.query<ProjectRowDb>(
+    const {rows} = await pool.query<ProjectRowDb>(
         `INSERT INTO projects (name, description, status)
-     VALUES ($1, COALESCE($2, ''), COALESCE($3, 'todo'))
-     RETURNING id, name, description, status, created_at`,
+         VALUES ($1, COALESCE($2, ''), COALESCE($3, 'todo'))
+         RETURNING id, name, description, status, created_at`,
         [data.name, data.description ?? null, data.status ?? null]
     );
     return rows[0];
@@ -110,8 +94,10 @@ export async function createProject(
 export async function getProjectById(
     id: number
 ): Promise<ProjectRowDb | null> {
-    const { rows } = await pool.query<ProjectRowDb>(
-        `SELECT * FROM projects WHERE id = $1`,
+    const {rows} = await pool.query<ProjectRowDb>(
+        `SELECT *
+         FROM projects
+         WHERE id = $1`,
         [id]
     );
     return rows[0] ?? null;
@@ -125,13 +111,13 @@ export async function updateProject(
     id: number,
     data: UpdateProjectInput
 ): Promise<ProjectRowDb | null> {
-    const { rows } = await pool.query<ProjectRowDb>(
+    const {rows} = await pool.query<ProjectRowDb>(
         `UPDATE projects
-        SET name = $2,
-            description = $3,
-            status = $4
-      WHERE id = $1
-      RETURNING *`,
+         SET name        = $2,
+             description = $3,
+             status      = $4
+         WHERE id = $1
+         RETURNING *`,
         [id, data.name, data.description, data.status]
     );
     return rows[0] ?? null;
@@ -139,6 +125,8 @@ export async function updateProject(
 
 /** Удаление по id. Возвращает true, если удалили ровно одну строку. */
 export async function deleteProject(id: number): Promise<boolean> {
-    const res = await pool.query(`DELETE FROM projects WHERE id = $1`, [id]);
+    const res = await pool.query(`DELETE
+                                  FROM projects
+                                  WHERE id = $1`, [id]);
     return res.rowCount === 1;
 }
