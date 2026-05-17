@@ -1,17 +1,17 @@
 // src/index.ts
-import express, { Request, Response } from "express";
+import express, {Request, Response} from "express";
 import cors from "cors";
 import {
-    listProjects,
-    getProjectById,
     createProject,
-    updateProject,
     deleteProject,
-    ProjectFilter,
+    getProjectById,
+    listProjects,
     NewProjectInput,
+    ProjectFilter,
+    updateProject,
     UpdateProjectInput,
 } from "./repositories/projects.repository";
-import {getProjectWithTasks} from "./repositories/project-with-tasks.repository";
+import {getProjectWithTasks2} from "./repositories/project-with-tasks.repository";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -77,7 +77,7 @@ app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
         return;
     }
 
-    const row = await getProjectWithTasks(idNum);
+    const row = await getProjectWithTasks2(idNum);
     if (!row) {
         res.sendStatus(HTTP.NOT_FOUND);
         return;
