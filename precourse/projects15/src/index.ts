@@ -11,6 +11,7 @@ import {
     NewProjectInput,
     UpdateProjectInput,
 } from "./repositories/projects.repository";
+import {getProjectWithTasks} from "./repositories/project-with-tasks.repository";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -42,7 +43,6 @@ app.get("/projects", async (req: Request, res: Response) => {
 app.get("/projects/:id", async (req: Request, res: Response) => {
     // req.params.id — это СТРОКА. Сначала явно приводим к числу:
     const idNum = Number(req.params.id);
-
     // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
     // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
     // а Number.isFinite("123") → false (строго, без приведения).
@@ -54,6 +54,30 @@ app.get("/projects/:id", async (req: Request, res: Response) => {
     }
 
     const row = await getProjectById(idNum);
+    if (!row) {
+        res.sendStatus(HTTP.NOT_FOUND);
+        return;
+    }
+    res.status(HTTP.OK).json(row);
+});
+
+// GET /projects/:id/with-tasks
+app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
+    // req.params.id — это СТРОКА. Сначала явно приводим к числу:
+    const idNum = Number(req.params.id);
+    console.log('idNum=',idNum);
+
+    // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
+    // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
+    // а Number.isFinite("123") → false (строго, без приведения).
+    // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
+    // Также это гораздо надежнее чем проверка с помощью IsNaN
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid project ID" });
+        return;
+    }
+
+    const row = await getProjectWithTasks(idNum);
     if (!row) {
         res.sendStatus(HTTP.NOT_FOUND);
         return;
