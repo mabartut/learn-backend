@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Manager</title>
+</head>
+<body>
+
+<h1>Управление проектами</h1>
+
+<!-- Форма фильтрации -->
+<div>
+    <h3>Фильтры</h3>
+    <input type="text" id="filterName" placeholder="Поиск по названию...">
+    <select id="filterStatus">
+        <option value="">Все статусы</option>
+        <option value="todo">todo</option>
+        <option value="in_progress">in_progress</option>
+        <option value="done">done</option>
+    </select>
+    <button onclick="loadProjects()">Применить</button>
+    <button onclick="resetFilters()">Сбросить</button>
+</div>
+
+<hr>
+
+<!-- Форма создания проекта -->
+<div>
+    <h3>Создать новый проект</h3>
+    <input type="text" id="newName" placeholder="Название (обязательно)">
+    <input type="text" id="newDescription" placeholder="Описание (опционально)">
+    <select id="newStatus">
+        <option value="">Статус (по умолчанию todo)</option>
+        <option value="todo">todo</option>
+        <option value="in_progress">in_progress</option>
+        <option value="done">done</option>
+    </select>
+    <button onclick="createProject()">Создать</button>
+</div>
+
+<hr>
+
+<!-- Список проектов -->
+<div>
+    <h3>Список проектов</h3>
+    <div id="projectsList"></div>
+</div>
+
+<!-- Блок для отображения задач выбранного проекта -->
+<div id="tasksSection" style="display:none; margin-top: 20px; border-top: 2px solid #ccc; padding-top: 20px;">
+    <h3>Задачи проекта: <span id="currentProjectName"></span></h3>
+    <button onclick="closeTasksSection()">Закрыть</button>
+
+    <div style="margin-top: 10px;">
+        <h4>Добавить новую задачу</h4>
+        <input type="text" id="newTaskTitle" placeholder="Название задачи" style="width: 300px;">
+        <button onclick="createTask()">Создать задачу</button>
+    </div>
+
+    <div id="tasksList" style="margin-top: 20px;"></div>
+</div>
+
+<!-- Модальное окно для редактирования проекта (простая форма) -->
+<div id="editModal" style="display:none; border:1px solid #ccc; padding:20px; margin-top:20px;">
+    <h3>Редактировать проект (полная замена)</h3>
+    <form id="editForm">
+        <input type="hidden" id="editId">
+        <label>Название: <input type="text" id="editName" required></label><br><br>
+        <label>Описание: <input type="text" id="editDescription" required></label><br><br>
+        <label>Статус:
+            <select id="editStatus" required>
+                <option value="todo">todo</option>
+                <option value="in_progress">in_progress</option>
+                <option value="done">done</option>
+            </select>
+        </label><br><br>
+        <button type="submit">Сохранить</button>
+        <button type="button" onclick="closeEditModal()">Отмена</button>
+    </form>
+</div>
+
+<script>
+    // Базовый URL бэкенда
+    const API_BASE = 'http://localhost:3000';
+    let currentProjectId = null;
+
+    // Загрузка проектов с учётом фильтров
+    async function loadProjects() {
+        const name = document.getElementById('filterName').value;
+        const status = document.getElementById('filterStatus').value;
+
+        let url = `${API_BASE}/projects`;
+        const params = new URLSearchParams();
+        if (name) params.append('name', name);
+        if (status) params.append('status', status);
+        if (params.toString()) url += `?${params.toString()}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+            const projects = await response.json();
+            renderProjects(projects);
+        } catch (err) {
+            document.getElementById('projectsList').innerHTML = `<p style="color:red;">Ошибка загрузки: ${err.message}</p>`;
+        }
+    }
+
+    // Отображение списка проектов
+    function renderProjects(projects) {
+        const container = document.getElementById('projectsList');
+        if (!projects.length) {
+            container.innerHTML = '<p>Нет проектов.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.border = '1';
+        table.style.borderCollapse = 'collapse';
+        table.style.width = '100%';
+
+        const thead = table.createTHead();
+        const headerRow = thead.insertRow();
+        ['ID', 'Название', 'Описание', 'Статус', 'Создан', 'Действия'].forEach(text => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            th.style.padding = '8px';
+            th.style.backgroundColor = '#f2f2f2';
+            headerRow.appendChild(th);
+        });
+
+        const tbody = table.createTBody();
+        projects.forEach(proj => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = proj.id;
+            row.insertCell().textContent = proj.name;
+            row.insertCell().textContent = proj.description;
+            row.insertCell().textContent = proj.status;
+            row.insertCell().textContent = new Date(proj.created_at).toLocaleString();
+
+            const actionsCell = row.insertCell();
+
+            const viewTasksBtn = document.createElement('button');
+            viewTasksBtn.textContent = '📋 Задачи';
+            viewTasksBtn.onclick = () => showProjectTasks(proj.id, proj.name);
+            viewTasksBtn.style.marginRight = '5px';
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Редактировать';
+            editBtn.onclick = () => openEditModal(proj);
+            editBtn.style.marginRight = '5px';
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Удалить';
+            delBtn.onclick = () => deleteProject(proj.id);
+
+            actionsCell.appendChild(viewTasksBtn);
+            actionsCell.appendChild(editBtn);
+            actionsCell.appendChild(delBtn);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(table);
+    }
+
+    // Показать задачи проекта
+    async function showProjectTasks(projectId, projectName) {
+        currentProjectId = projectId;
+        document.getElementById('currentProjectName').textContent = projectName;
+        document.getElementById('tasksSection').style.display = 'block';
+
+        await loadTasks(projectId);
+    }
+
+    // Загрузка задач проекта
+    async function loadTasks(projectId) {
+        try {
+            const response = await fetch(`${API_BASE}/projects/${projectId}/with-tasks`);
+            if (!response.ok) throw new Error(`Ошибка загрузки задач: ${response.status}`);
+
+            const data = await response.json();
+            renderTasks(data.tasks);
+        } catch (err) {
+            document.getElementById('tasksList').innerHTML = `<p style="color:red;">Ошибка загрузки задач: ${err.message}</p>`;
+        }
+    }
+
+    // Отображение задач
+    function renderTasks(tasks) {
+        const container = document.getElementById('tasksList');
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<p>Нет задач для этого проекта.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.border = '1';
+        table.style.borderCollapse = 'collapse';
+        table.style.width = '100%';
+
+        const thead = table.createTHead();
+        const headerRow = thead.insertRow();
+        ['ID', 'Название', 'Статус', 'Создана', 'Действия'].forEach(text => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            th.style.padding = '8px';
+            th.style.backgroundColor = '#f2f2f2';
+            headerRow.appendChild(th);
+        });
+
+        const tbody = table.createTBody();
+        tasks.forEach(task => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = task.id;
+            row.insertCell().textContent = task.title;
+
+            const statusCell = row.insertCell();
+            const statusCheckbox = document.createElement('input');
+            statusCheckbox.type = 'checkbox';
+            statusCheckbox.checked = task.is_done;
+            statusCheckbox.onchange = () => toggleTaskStatus(task.id, task.is_done);
+            statusCell.appendChild(statusCheckbox);
+            statusCell.appendChild(document.createTextNode(task.is_done ? ' Выполнена' : ' Не выполнена'));
+
+            row.insertCell().textContent = new Date(task.created_at).toLocaleString();
+
+            const actionsCell = row.insertCell();
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Удалить';
+            deleteBtn.onclick = () => deleteTask(task.id);
+            deleteBtn.style.backgroundColor = '#ff4444';
+            deleteBtn.style.color = 'white';
+            actionsCell.appendChild(deleteBtn);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(table);
+    }
+
+    // Создание задачи
+    async function createTask() {
+        const title = document.getElementById('newTaskTitle').value.trim();
+        if (!title) {
+            alert('Введите название задачи');
+            return;
+        }
+
+        const payload = {
+            title: title,
+            project_id: currentProjectId
+        };
+
+        try {
+            const response = await fetch(`${API_BASE}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`Ошибка создания задачи: ${response.status}`);
+
+            document.getElementById('newTaskTitle').value = '';
+            await loadTasks(currentProjectId);
+        } catch (err) {
+            alert(`Не удалось создать задачу: ${err.message}`);
+        }
+    }
+
+    // Переключение статуса задачи
+    async function toggleTaskStatus(taskId, currentStatus) {
+        try {
+            const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_done: !currentStatus })
+            });
+
+            if (!response.ok) throw new Error(`Ошибка обновления статуса: ${response.status}`);
+
+            await loadTasks(currentProjectId);
+        } catch (err) {
+            alert(`Не удалось обновить статус задачи: ${err.message}`);
+        }
+    }
+
+    // Удаление задачи
+    async function deleteTask(taskId) {
+        if (!confirm('Вы уверены, что хотите удалить эту задачу?')) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error(`Ошибка удаления задачи: ${response.status}`);
+
+            await loadTasks(currentProjectId);
+        } catch (err) {
+            alert(`Не удалось удалить задачу: ${err.message}`);
+        }
+    }
+
+    // Закрыть блок с задачами
+    function closeTasksSection() {
+        document.getElementById('tasksSection').style.display = 'none';
+        currentProjectId = null;
+        document.getElementById('newTaskTitle').value = '';
+    }
+
+    // Создание проекта
+    async function createProject() {
+        const name = document.getElementById('newName').value.trim();
+        if (!name) {
+            alert('Название проекта обязательно');
+            return;
+        }
+        const description = document.getElementById('newDescription').value;
+        let status = document.getElementById('newStatus').value;
+        if (status === '') status = undefined;
+
+        const payload = {
+            name: name,
+            description: description || undefined,
+            status: status
+        };
+
+        try {
+            const response = await fetch(`${API_BASE}/projects`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ошибка: ${response.status} - ${errText}`);
+            }
+
+            document.getElementById('newName').value = '';
+            document.getElementById('newDescription').value = '';
+            document.getElementById('newStatus').value = '';
+
+            await loadProjects();
+        } catch (err) {
+            alert(`Не удалось создать проект: ${err.message}`);
+        }
+    }
+
+    // Удаление проекта
+    async function deleteProject(id) {
+        if (!confirm(`Вы уверены, что хотите удалить проект с ID ${id}?`)) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/projects/${id}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error(`Ошибка удаления: ${response.status}`);
+
+            if (currentProjectId === id) {
+                closeTasksSection();
+            }
+
+            await loadProjects();
+        } catch (err) {
+            alert(`Не удалось удалить: ${err.message}`);
+        }
+    }
+
+    // Открыть модальное окно для редактирования проекта
+    function openEditModal(project) {
+        document.getElementById('editId').value = project.id;
+        document.getElementById('editName').value = project.name;
+        document.getElementById('editDescription').value = project.description;
+        document.getElementById('editStatus').value = project.status;
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+        document.getElementById('editForm').reset();
+    }
+
+    // Отправка обновления проекта (PUT)
+    async function updateProject(id, data) {
+        try {
+            const response = await fetch(`${API_BASE}/projects/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ошибка обновления: ${response.status} - ${errText}`);
+            }
+            await loadProjects();
+
+            if (currentProjectId === id) {
+                const projectData = await response.json();
+                document.getElementById('currentProjectName').textContent = projectData.name;
+                await loadTasks(id);
+            }
+
+            closeEditModal();
+        } catch (err) {
+            alert(`Не удалось обновить проект: ${err.message}`);
+        }
+    }
+
+    // Обработчик формы редактирования
+    document.getElementById('editForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = parseInt(document.getElementById('editId').value, 10);
+        const name = document.getElementById('editName').value.trim();
+        if (!name) {
+            alert('Название обязательно');
+            return;
+        }
+        const description = document.getElementById('editDescription').value;
+        const status = document.getElementById('editStatus').value;
+        const updateData = { name, description, status };
+        updateProject(id, updateData);
+    });
+
+    // Сброс фильтров и перезагрузка
+    function resetFilters() {
+        document.getElementById('filterName').value = '';
+        document.getElementById('filterStatus').value = '';
+        loadProjects();
+    }
+
+    // начальная загрузка
+    loadProjects();
+</script>
+
+</body>
+</html>
