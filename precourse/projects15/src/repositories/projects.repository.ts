@@ -42,26 +42,47 @@ export type UpdateProjectInput = {
  */
 export type ProjectFilter = {
     name?: string;
+    status?: string;
 };
 
 /** Список: весь или отфильтрованный по подстроке name (ILIKE). */
 export async function listProjects(
     filter: ProjectFilter = {}
 ): Promise<ProjectRowDb[]> {
-    const { name } = filter;
+    const { name, status } = filter;
 
-    if (!name) {
+    if (!name && !status) {
         const { rows } = await pool.query<ProjectRowDb>(
             `SELECT * FROM projects ORDER BY id DESC`
         );
         return rows;
     }
 
+    if (!name) {
+        const { rows } = await pool.query<ProjectRowDb>(
+            `SELECT * FROM projects
+             WHERE status = $1
+             ORDER BY id DESC`,
+            [status]
+        );
+        return rows;
+    }
+
+    if (!status) {
+        const { rows } = await pool.query<ProjectRowDb>(
+            `SELECT * FROM projects
+             WHERE name ILIKE $1
+             ORDER BY id DESC`,
+            [`%${name}%`]
+        );
+        return rows;
+    }
+
     const { rows } = await pool.query<ProjectRowDb>(
         `SELECT * FROM projects
-       WHERE name ILIKE $1
+       WHERE name ILIKE $1 AND status = $2
      ORDER BY id DESC`,
-        [`%${name}%`]
+        [`%${name}%`, status]
     );
     return rows;
 }
