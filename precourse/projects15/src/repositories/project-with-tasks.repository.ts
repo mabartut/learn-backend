@@ -19,13 +19,11 @@ type ProjectWithTaskRowDb = ProjectRowDb & {
 };
 
 export type NewTaskInput = {
-    project_id: number
     title: string
     is_done?: boolean
 };
 
 export type UpdateTaskInput = {
-    project_id: number
     title: string
     is_done: boolean
 }
@@ -86,7 +84,9 @@ export async function getProjectWithTasks2(
     id: number
 ): Promise<ProjectWithTasks | null> {
     const projectResult = await pool.query<ProjectRowDb>(
-        `SELECT * FROM projects WHERE id = $1`,
+        `SELECT *
+         FROM projects
+         WHERE id = $1`,
         [id]
     );
 
@@ -94,10 +94,63 @@ export async function getProjectWithTasks2(
         return null
     }
 
-    const tasksResult=await pool.query<TaskRowDb>(
-        `SELECT * FROM tasks WHERE project_id = $1 ORDER BY id DESC`,
+    const tasksResult = await pool.query<TaskRowDb>(
+        `SELECT *
+         FROM tasks
+         WHERE project_id = $1
+         ORDER BY id DESC`,
         [id]
     );
 
     return {project: projectResult.rows[0], tasks: tasksResult.rows};
 }
+
+export async function createTask(
+    project_id: number,
+    data: NewTaskInput
+): Promise<TaskRowDb> {
+    const {rows} = await pool.query<TaskRowDb>(
+        `INSERT INTO tasks (project_id, title, is_done)
+         VALUES ($1, $2, COALESCE($3, false))
+         RETURNING id, project_id, title, is_done, created_at`,
+        [project_id, data.title, data.is_done]
+    );
+    return rows[0];
+}
+
+export async function getProjectTasks(
+    project_id: number
+): Promise<TaskRowDb> {
+    const {rows} = await pool.query<TaskRowDb>(
+        `SELECT *
+         FROM tasks
+         WHERE project_id = $1
+         ORDER BY id DESC`,
+        [project_id]
+    );
+    return rows[0];
+}
+
+export async function updateTask(
+    id: number,
+    data: UpdateTaskInput
+): Promise<TaskRowDb | null> {
+    const {rows} = await pool.query<TaskRowDb>(
+        `UPDATE tasks
+         SET title   = $2,
+             is_done = $3
+         WHERE id = $1
+         RETURNING *`,
+        [id, data.title, data.is_done]
+    );
+    return rows[0] ?? null;
+}
+
+export async function deleteTask(id: number): Promise<boolean> {
+    const res = await pool.query(`DELETE
+                                  FROM tasks
+                                  WHERE id = $1`, [id]);
+    return res.rowCount === 1;
+}
+
+

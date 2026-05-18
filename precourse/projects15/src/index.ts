@@ -11,7 +11,15 @@ import {
     updateProject,
     UpdateProjectInput,
 } from "./repositories/projects.repository";
-import {getProjectWithTasks2} from "./repositories/project-with-tasks.repository";
+import {
+    createTask,
+    deleteTask,
+    getProjectTasks,
+    getProjectWithTasks2,
+    NewTaskInput,
+    updateTask,
+    UpdateTaskInput
+} from "./repositories/project-with-tasks.repository";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -29,13 +37,13 @@ app.use(cors());
 
 // Пинг
 app.get("/", (_req: Request, res: Response) => {
-    res.status(HTTP.OK).json({ message: "Projects API is up" });
+    res.status(HTTP.OK).json({message: "Projects API is up"});
 });
 
 // GET /projects?name=...
 app.get("/projects", async (req: Request, res: Response) => {
-    const { name, status} = req.query as ProjectFilter;
-    const rows = await listProjects({ name, status });
+    const {name, status} = req.query as ProjectFilter;
+    const rows = await listProjects({name, status});
     res.status(HTTP.OK).json(rows);
 });
 
@@ -49,7 +57,7 @@ app.get("/projects/:id", async (req: Request, res: Response) => {
     // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
     // Также это гораздо надежнее чем проверка с помощью IsNaN
     if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid project ID" });
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
         return;
     }
 
@@ -65,7 +73,6 @@ app.get("/projects/:id", async (req: Request, res: Response) => {
 app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
     // req.params.id — это СТРОКА. Сначала явно приводим к числу:
     const idNum = Number(req.params.id);
-    console.log('idNum=',idNum);
 
     // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
     // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
@@ -73,7 +80,7 @@ app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
     // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
     // Также это гораздо надежнее чем проверка с помощью IsNaN
     if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid project ID" });
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
         return;
     }
 
@@ -87,10 +94,10 @@ app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
 
 // POST /projects   { name, description?, status? }
 app.post("/projects", async (req: Request, res: Response) => {
-    const { name, description, status } = req.body as NewProjectInput;
+    const {name, description, status} = req.body as NewProjectInput;
 
     if (!name) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "Name is required" });
+        res.status(HTTP.BAD_REQUEST).json({error: "Name is required"});
         return;
     }
 
@@ -106,14 +113,14 @@ app.post("/projects", async (req: Request, res: Response) => {
 app.put("/projects/:id", async (req: Request, res: Response) => {
     const idNum = Number(req.params.id);
     if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid project ID" });
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
         return;
     }
 
-    const { name, description, status } = req.body as UpdateProjectInput;
+    const {name, description, status} = req.body as UpdateProjectInput;
 
     if (!name || !description || !status) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "name, description, status are required" });
+        res.status(HTTP.BAD_REQUEST).json({error: "name, description, status are required"});
         return;
     }
 
@@ -134,7 +141,7 @@ app.delete("/projects/:id", async (req: Request, res: Response) => {
     const idNum = Number(req.params.id);
     // Ещё раз: Number(...) → Number.isFinite(...) → проверка > 0
     if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid project ID" });
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
         return;
     }
 
@@ -145,5 +152,67 @@ app.delete("/projects/:id", async (req: Request, res: Response) => {
     }
     res.sendStatus(HTTP.NO_CONTENT);
 });
+
+app.post("/projects/:projectId/tasks", async (req: Request, res: Response) => {
+    const idNum = Number(req.params.projectId);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+        return;
+    }
+    const {title, is_done} = req.body as NewTaskInput
+    if (!title) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+    }
+    const created = await createTask(idNum, {title, is_done});
+    res.status(HTTP.CREATED).json(created);
+})
+
+app.get("/projects/:projectId/tasks", async (req: Request, res: Response) => {
+    const idNum = Number(req.params.projectId);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+        return;
+    }
+    const rows = await getProjectTasks(idNum);
+    res.status(HTTP.OK).json(rows);
+})
+
+app.put("/tasks/:id", async (req: Request, res: Response) => {
+    const idNum = Number(req.params.id);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
+        return;
+    }
+
+    const {title, is_done} = req.body as UpdateTaskInput;
+
+    if (!title) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+    }
+
+    const updated = await updateTask(idNum, {title, is_done});
+    if (!updated) {
+        res.sendStatus(HTTP.NOT_FOUND);
+        return;
+    }
+    res.status(HTTP.OK).json(updated);
+});
+
+
+app.delete("/tasks/:id", async (req: Request, res: Response) => {
+    const idNum = Number(req.params.id);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
+        return;
+    }
+
+    const ok = await deleteTask(idNum);
+    if (!ok) {
+        res.sendStatus(HTTP.NOT_FOUND);
+        return;
+    }
+    res.sendStatus(HTTP.NO_CONTENT);
+});
+
 
 app.listen(port, () => console.log(`✅ http://localhost:${port}`));
