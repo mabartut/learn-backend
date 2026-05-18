@@ -51,17 +51,21 @@
 <div id="tasksSection" style="display:none; margin-top: 20px; border-top: 2px solid #ccc; padding-top: 20px;">
     <h3>Задачи проекта: <span id="currentProjectName"></span></h3>
     <button onclick="closeTasksSection()">Закрыть</button>
+    <button onclick="loadTasksOnly()" style="margin-left: 10px;">🔄 Обновить задачи</button>
 
-    <div style="margin-top: 10px;">
+    <div style="margin-top: 10px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd;">
         <h4>Добавить новую задачу</h4>
         <input type="text" id="newTaskTitle" placeholder="Название задачи" style="width: 300px;">
-        <button onclick="createTask()">Создать задачу</button>
+        <label style="margin-left: 10px;">
+            <input type="checkbox" id="newTaskDone"> Выполнена
+        </label>
+        <button onclick="createTask()" style="margin-left: 10px;">Создать задачу</button>
     </div>
 
     <div id="tasksList" style="margin-top: 20px;"></div>
 </div>
 
-<!-- Модальное окно для редактирования проекта (простая форма) -->
+<!-- Модальное окно для редактирования проекта (полная замена) -->
 <div id="editModal" style="display:none; border:1px solid #ccc; padding:20px; margin-top:20px;">
     <h3>Редактировать проект (полная замена)</h3>
     <form id="editForm">
@@ -77,6 +81,20 @@
         </label><br><br>
         <button type="submit">Сохранить</button>
         <button type="button" onclick="closeEditModal()">Отмена</button>
+    </form>
+</div>
+
+<!-- Модальное окно для редактирования задачи -->
+<div id="editTaskModal" style="display:none; border:1px solid #ccc; padding:20px; margin-top:20px;">
+    <h3>Редактировать задачу</h3>
+    <form id="editTaskForm">
+        <input type="hidden" id="editTaskId">
+        <label>Название задачи: <input type="text" id="editTaskTitle" required style="width: 300px;"></label><br><br>
+        <label>Статус:
+            <input type="checkbox" id="editTaskDone"> Выполнена
+        </label><br><br>
+        <button type="submit">Сохранить</button>
+        <button type="button" onclick="closeEditTaskModal()">Отмена</button>
     </form>
 </div>
 
@@ -163,29 +181,41 @@
         container.appendChild(table);
     }
 
-    // Показать задачи проекта
+    // Показать задачи проекта (используем /with-tasks для одного запроса)
     async function showProjectTasks(projectId, projectName) {
         currentProjectId = projectId;
         document.getElementById('currentProjectName').textContent = projectName;
         document.getElementById('tasksSection').style.display = 'block';
-
-        await loadTasks(projectId);
+        await loadProjectWithTasks(projectId);
     }
 
-    // Загрузка задач проекта
-    async function loadTasks(projectId) {
+    // Загрузка проекта с задачами в один запрос (/projects/:id/with-tasks)
+    async function loadProjectWithTasks(projectId) {
         try {
             const response = await fetch(`${API_BASE}/projects/${projectId}/with-tasks`);
-            if (!response.ok) throw new Error(`Ошибка загрузки задач: ${response.status}`);
-
+            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
             const data = await response.json();
             renderTasks(data.tasks);
+        } catch (err) {
+            document.getElementById('tasksList').innerHTML = `<p style="color:red;">Ошибка загрузки: ${err.message}</p>`;
+        }
+    }
+
+    // Загрузка только задач (используем /projects/:projectId/tasks)
+    async function loadTasksOnly() {
+        if (!currentProjectId) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/projects/${currentProjectId}/tasks`);
+            if (!response.ok) throw new Error(`Ошибка загрузки задач: ${response.status}`);
+            const tasks = await response.json();
+            renderTasks(tasks);
         } catch (err) {
             document.getElementById('tasksList').innerHTML = `<p style="color:red;">Ошибка загрузки задач: ${err.message}</p>`;
         }
     }
 
-    // Отображение задач
+    // Отображение задач с кнопками редактирования
     function renderTasks(tasks) {
         const container = document.getElementById('tasksList');
         if (!tasks || tasks.length === 0) {
@@ -225,11 +255,27 @@
             row.insertCell().textContent = new Date(task.created_at).toLocaleString();
 
             const actionsCell = row.insertCell();
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '✏️ Редактировать';
+            editBtn.onclick = () => openEditTaskModal(task);
+            editBtn.style.marginRight = '5px';
+            editBtn.style.backgroundColor = '#2196F3';
+            editBtn.style.color = 'white';
+            editBtn.style.border = 'none';
+            editBtn.style.padding = '5px 10px';
+            editBtn.style.cursor = 'pointer';
+
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Удалить';
             deleteBtn.onclick = () => deleteTask(task.id);
             deleteBtn.style.backgroundColor = '#ff4444';
             deleteBtn.style.color = 'white';
+            deleteBtn.style.border = 'none';
+            deleteBtn.style.padding = '5px 10px';
+            deleteBtn.style.cursor = 'pointer';
+
+            actionsCell.appendChild(editBtn);
             actionsCell.appendChild(deleteBtn);
         });
 
@@ -237,7 +283,7 @@
         container.appendChild(table);
     }
 
-    // Создание задачи
+    // Создание задачи (POST /projects/:projectId/tasks) с возможностью задать is_done
     async function createTask() {
         const title = document.getElementById('newTaskTitle').value.trim();
         if (!title) {
@@ -245,45 +291,88 @@
             return;
         }
 
-        const payload = {
-            title: title,
-            project_id: currentProjectId
-        };
+        const is_done = document.getElementById('newTaskDone').checked;
 
         try {
-            const response = await fetch(`${API_BASE}/tasks`, {
+            const response = await fetch(`${API_BASE}/projects/${currentProjectId}/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ title: title, is_done: is_done })
             });
 
             if (!response.ok) throw new Error(`Ошибка создания задачи: ${response.status}`);
 
+            // Очищаем форму
             document.getElementById('newTaskTitle').value = '';
-            await loadTasks(currentProjectId);
+            document.getElementById('newTaskDone').checked = false;
+
+            // Обновляем список задач
+            await loadTasksOnly();
         } catch (err) {
             alert(`Не удалось создать задачу: ${err.message}`);
         }
     }
 
-    // Переключение статуса задачи
+    // Переключение статуса задачи (PUT /tasks/:id)
     async function toggleTaskStatus(taskId, currentStatus) {
         try {
+            // Получаем текущую задачу, чтобы знать title
+            const responseTasks = await fetch(`${API_BASE}/projects/${currentProjectId}/tasks`);
+            if (!responseTasks.ok) throw new Error('Не удалось загрузить задачи');
+            const tasks = await responseTasks.json();
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) throw new Error('Задача не найдена');
+
             const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_done: !currentStatus })
+                body: JSON.stringify({
+                    title: task.title,
+                    is_done: !currentStatus
+                })
             });
 
             if (!response.ok) throw new Error(`Ошибка обновления статуса: ${response.status}`);
 
-            await loadTasks(currentProjectId);
+            await loadTasksOnly();
         } catch (err) {
             alert(`Не удалось обновить статус задачи: ${err.message}`);
         }
     }
 
-    // Удаление задачи
+    // Открыть модалку редактирования задачи
+    function openEditTaskModal(task) {
+        document.getElementById('editTaskId').value = task.id;
+        document.getElementById('editTaskTitle').value = task.title;
+        document.getElementById('editTaskDone').checked = task.is_done;
+        document.getElementById('editTaskModal').style.display = 'block';
+    }
+
+    function closeEditTaskModal() {
+        document.getElementById('editTaskModal').style.display = 'none';
+        document.getElementById('editTaskForm').reset();
+    }
+
+    // Обновление задачи (PUT /tasks/:id)
+    async function updateTask(taskId, title, is_done) {
+        try {
+            const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, is_done: is_done })
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ошибка обновления: ${response.status} - ${errText}`);
+            }
+            await loadTasksOnly();
+            closeEditTaskModal();
+        } catch (err) {
+            alert(`Не удалось обновить задачу: ${err.message}`);
+        }
+    }
+
+    // Удаление задачи (DELETE /tasks/:id)
     async function deleteTask(taskId) {
         if (!confirm('Вы уверены, что хотите удалить эту задачу?')) return;
 
@@ -294,7 +383,7 @@
 
             if (!response.ok) throw new Error(`Ошибка удаления задачи: ${response.status}`);
 
-            await loadTasks(currentProjectId);
+            await loadTasksOnly();
         } catch (err) {
             alert(`Не удалось удалить задачу: ${err.message}`);
         }
@@ -305,9 +394,10 @@
         document.getElementById('tasksSection').style.display = 'none';
         currentProjectId = null;
         document.getElementById('newTaskTitle').value = '';
+        document.getElementById('newTaskDone').checked = false;
     }
 
-    // Создание проекта
+    // Создание проекта (POST /projects)
     async function createProject() {
         const name = document.getElementById('newName').value.trim();
         if (!name) {
@@ -345,7 +435,7 @@
         }
     }
 
-    // Удаление проекта
+    // Удаление проекта (DELETE /projects/:id)
     async function deleteProject(id) {
         if (!confirm(`Вы уверены, что хотите удалить проект с ID ${id}?`)) return;
 
@@ -379,7 +469,7 @@
         document.getElementById('editForm').reset();
     }
 
-    // Отправка обновления проекта (PUT)
+    // Обновление проекта (PUT /projects/:id)
     async function updateProject(id, data) {
         try {
             const response = await fetch(`${API_BASE}/projects/${id}`, {
@@ -391,12 +481,12 @@
                 const errText = await response.text();
                 throw new Error(`Ошибка обновления: ${response.status} - ${errText}`);
             }
+            const updatedProject = await response.json();
             await loadProjects();
 
             if (currentProjectId === id) {
-                const projectData = await response.json();
-                document.getElementById('currentProjectName').textContent = projectData.name;
-                await loadTasks(id);
+                document.getElementById('currentProjectName').textContent = updatedProject.name;
+                await loadTasksOnly();
             }
 
             closeEditModal();
@@ -405,7 +495,7 @@
         }
     }
 
-    // Обработчик формы редактирования
+    // Обработчик формы редактирования проекта
     document.getElementById('editForm').addEventListener('submit', (e) => {
         e.preventDefault();
         const id = parseInt(document.getElementById('editId').value, 10);
@@ -418,6 +508,19 @@
         const status = document.getElementById('editStatus').value;
         const updateData = { name, description, status };
         updateProject(id, updateData);
+    });
+
+    // Обработчик формы редактирования задачи
+    document.getElementById('editTaskForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = parseInt(document.getElementById('editTaskId').value, 10);
+        const title = document.getElementById('editTaskTitle').value.trim();
+        if (!title) {
+            alert('Название задачи обязательно');
+            return;
+        }
+        const is_done = document.getElementById('editTaskDone').checked;
+        updateTask(id, title, is_done);
     });
 
     // Сброс фильтров и перезагрузка
