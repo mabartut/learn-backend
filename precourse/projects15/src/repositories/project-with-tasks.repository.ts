@@ -120,7 +120,7 @@ export async function createTask(
 
 export async function getProjectTasks(
     project_id: number
-): Promise<TaskRowDb> {
+): Promise<TaskRowDb[]> {
     const {rows} = await pool.query<TaskRowDb>(
         `SELECT *
          FROM tasks
@@ -128,7 +128,7 @@ export async function getProjectTasks(
          ORDER BY id DESC`,
         [project_id]
     );
-    return rows[0];
+    return rows;
 }
 
 export async function updateTask(
