@@ -21,7 +21,7 @@ import {
     UpdateTaskInput
 } from "./repositories/project-with-tasks.repository";
 
-const app = express();
+export const app = express();
 const port = Number(process.env.PORT) || 3000;
 
 const HTTP = {
