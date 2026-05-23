@@ -24,7 +24,7 @@ import {
 export const app = express();
 const port = Number(process.env.PORT) || 3000;
 
-const HTTP = {
+export const HTTP = {
     OK: 200,
     CREATED: 201,
     NO_CONTENT: 204,
