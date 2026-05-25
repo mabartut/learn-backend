@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h1>lalala</h1>
+</body>
+<script>
+    const saveUser = (logger) => (user, type) => {
+        logger(`Saving user with id: ${user.id}`, type);
+        // many lines to save user
+    };
+
+    const saveAdmin = (logger) => (admin, type) => {
+        logger(`Saving admin with id: ${admin.id}`, type);
+        // many lines to save admin
+    };
+
+    const saveBook = (logger) => (book, type) => {
+        logger(`Saving book with id: ${book.id}`, type);
+        // many lines to save book
+    };
+
+    const logger = (message, type='log') => {
+        const date = new Date();
+
+        const time = [date.getHours(), date.getMinutes(), date.getSeconds()].join(":");
+        console[type](`LOG [${time}]: ${message}`)
+    };
+
+    const main = () => {
+        const userSaver = saveUser(logger);
+        const adminSaver = saveAdmin(logger);
+        const bookSaver = saveBook(logger);
+
+        userSaver({id: "1"}, 'warn');
+        adminSaver({id: "2"});
+        bookSaver({id: "3"});
+    };
+
+    main();
+
+</script>
+</html>
