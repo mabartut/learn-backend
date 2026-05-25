@@ -7,7 +7,7 @@ import {
     getProjectById,
     listProjects,
     NewProjectInput,
-    ProjectFilter,
+    ProjectRowDb,
     updateProject,
     UpdateProjectInput,
 } from "./repositories/projects.repository";
@@ -17,6 +17,8 @@ import {
     getProjectTasks,
     getProjectWithTasks2,
     NewTaskInput,
+    ProjectWithTasks,
+    TaskRowDb,
     updateTask,
     UpdateTaskInput
 } from "./repositories/project-with-tasks.repository";
@@ -36,19 +38,22 @@ app.use(express.json());
 app.use(cors());
 
 // Пинг
-app.get("/", (_req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response<{ message: string }>) => {
     res.status(HTTP.OK).json({message: "Projects API is up"});
 });
 
 // GET /projects?name=...
-app.get("/projects", async (req: Request, res: Response) => {
-    const {name, status} = req.query as ProjectFilter;
+app.get("/projects", async (req: Request<{}, {}, {}, {
+    name: string,
+    status: string
+}>, res: Response<ProjectRowDb[]>) => {
+    const {name, status} = req.query;
     const rows = await listProjects({name, status});
     res.status(HTTP.OK).json(rows);
 });
 
 // GET /projects/:id
-app.get("/projects/:id", async (req: Request, res: Response) => {
+app.get("/projects/:id", async (req: Request<{ id: string }>, res: Response<ProjectRowDb | { error: string }>) => {
     // req.params.id — это СТРОКА. Сначала явно приводим к числу:
     const idNum = Number(req.params.id);
     // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
@@ -70,27 +75,28 @@ app.get("/projects/:id", async (req: Request, res: Response) => {
 });
 
 // GET /projects/:id/with-tasks
-app.get("/projects/:id/with-tasks", async (req: Request, res: Response) => {
-    // req.params.id — это СТРОКА. Сначала явно приводим к числу:
-    const idNum = Number(req.params.id);
+app.get("/projects/:id/with-tasks",
+    async (req: Request<{ id: string }>, res: Response<ProjectWithTasks | { error: string }>) => {
+        // req.params.id — это СТРОКА. Сначала явно приводим к числу:
+        const idNum = Number(req.params.id);
 
-    // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
-    // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
-    // а Number.isFinite("123") → false (строго, без приведения).
-    // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
-    // Также это гораздо надежнее чем проверка с помощью IsNaN
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
+        // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
+        // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
+        // а Number.isFinite("123") → false (строго, без приведения).
+        // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
+        // Также это гораздо надежнее чем проверка с помощью IsNaN
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
 
-    const row = await getProjectWithTasks2(idNum);
-    if (!row) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.status(HTTP.OK).json(row);
-});
+        const row = await getProjectWithTasks2(idNum);
+        if (!row) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+        res.status(HTTP.OK).json(row);
+    });
 
 // POST /projects   { name, description?, status? }
 app.post("/projects", async (req: Request, res: Response) => {
@@ -167,15 +173,16 @@ app.post("/projects/:projectId/tasks", async (req: Request, res: Response) => {
     res.status(HTTP.CREATED).json(created);
 })
 
-app.get("/projects/:projectId/tasks", async (req: Request, res: Response) => {
-    const idNum = Number(req.params.projectId);
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
-    const rows = await getProjectTasks(idNum);
-    res.status(HTTP.OK).json(rows);
-})
+app.get("/projects/:projectId/tasks",
+    async (req: Request<{ projectId: string }>, res: Response<TaskRowDb[] | { error: string }>) => {
+        const idNum = Number(req.params.projectId);
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
+        const rows = await getProjectTasks(idNum);
+        res.status(HTTP.OK).json(rows);
+    })
 
 app.put("/tasks/:id", async (req: Request, res: Response) => {
     const idNum = Number(req.params.id);
