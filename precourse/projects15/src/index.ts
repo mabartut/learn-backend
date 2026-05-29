@@ -29,6 +29,8 @@ import {ProjectIdParams} from "./models/ProjectIdParams";
 import {GetProjectsOut, ProjectOut} from "./models/GetProjectsOut";
 import {GetProjectsWithTasksOut} from "./models/GetProjectsWithTasksOut";
 import {GetProjectTasksOut, TaskOut} from "./models/GetProjectTasksOut";
+import {PostProjectOut} from "./models/PostProjectOut";
+import {PostTaskOut} from "./models/PostTaskOut";
 
 export const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -49,7 +51,7 @@ app.get("/", (_req: Request, res: Response<{ message: string }>) => {
     res.status(HTTP.OK).json({message: "Projects API is up"});
 });
 
-const projectOutMapper = (r: ProjectRowDb):ProjectOut => ({
+const projectOutMapper = (r: ProjectRowDb): ProjectOut => ({
     id: r.id,
     name: r.name,
     description: r.description,
@@ -57,7 +59,7 @@ const projectOutMapper = (r: ProjectRowDb):ProjectOut => ({
     created_at: r.created_at
 })
 
-const taskOutMapper = (t: TaskRowDb):TaskOut => ({
+const taskOutMapper = (t: TaskRowDb): TaskOut => ({
     id: t.id,
     project_id: t.project_id,
     title: t.title,
@@ -65,17 +67,18 @@ const taskOutMapper = (t: TaskRowDb):TaskOut => ({
     created_at: t.created_at
 })
 
-// GET /projects?name=...
-app.get("/projects", async (req: ReqWithQuery<GetProjectsIn>,
-                            res: Response<GetProjectsOut[]>) => {
-    const {name, status} = req.query;
-    const rows: ProjectRowDb[] = await listProjects({name, status});
-    res.status(HTTP.OK)
+// ✅ GET /projects?name=...
+app.get("/projects",
+    async (req: ReqWithQuery<GetProjectsIn>,
+           res: Response<GetProjectsOut[]>) => {
+        const {name, status} = req.query;
+        const rows: ProjectRowDb[] = await listProjects({name, status});
+        res.status(HTTP.OK)
 
-    res.json(rows.map(projectOutMapper));
-});
+        res.json(rows.map(projectOutMapper));
+    });
 
-// GET /projects/:id
+// ✅ GET /projects/:id
 app.get("/projects/:id",
     async (req: ReqWithParams<IdParams>,
            res: Response<GetProjectsOut>) => {
@@ -100,7 +103,7 @@ app.get("/projects/:id",
         res.status(HTTP.OK).json(projectOutMapper(row));
     });
 
-// GET /projects/:id/with-tasks
+// ✅ GET /projects/:id/with-tasks
 app.get("/projects/:id/with-tasks",
     async (req: ReqWithParams<IdParams>,
            res: Response<GetProjectsWithTasksOut>) => {
@@ -133,83 +136,94 @@ app.get("/projects/:id/with-tasks",
         res.json(result);
     });
 
-// POST /projects   { name, description?, status? }
-app.post("/projects", async (req: ReqWithBody<NewProjectInput>, res: Response) => {
-    const {name, description, status} = req.body;
+// ✅ POST /projects   { name, description?, status? }
+app.post("/projects",
+    async (req: ReqWithBody<NewProjectInput>,
+           res: Response<PostProjectOut>) => {
+        const {name, description, status} = req.body;
 
-    if (!name) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Name is required"});
-        return;
-    }
+        if (!name) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Name is required"});
+            return;
+        }
 
-    const created = await createProject({
-        name,
-        description,
-        status,
+        const created = await createProject({
+            name,
+            description,
+            status,
+        });
+        res.status(HTTP.CREATED).json(projectOutMapper(created));
     });
-    res.status(HTTP.CREATED).json(created);
-});
 
 // PUT /projects/:id   { name, description?, status? }
-app.put("/projects/:id", async (req: ReqWithParamsAndBody<IdParams, UpdateProjectInput>, res: Response) => {
-    const idNum = Number(req.params.id);
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
+app.put("/projects/:id",
+    async (req: ReqWithParamsAndBody<IdParams, UpdateProjectInput>,
+           res: Response) => {
+        const idNum = Number(req.params.id);
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
 
-    const {name, description, status} = req.body;
+        const {name, description, status} = req.body;
 
-    if (!name || !description || !status) {
-        res.status(HTTP.BAD_REQUEST).json({error: "name, description, status are required"});
-        return;
-    }
+        if (!name || !description || !status) {
+            res.status(HTTP.BAD_REQUEST).json({error: "name, description, status are required"});
+            return;
+        }
 
-    const updated = await updateProject(idNum, {
-        name: name.trim(),
-        description,
-        status,
+        const updated = await updateProject(idNum, {
+            name: name.trim(),
+            description,
+            status,
+        });
+        if (!updated) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+        res.status(HTTP.OK).json(updated); // (можно 204 No Content)
     });
-    if (!updated) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.status(HTTP.OK).json(updated); // (можно 204 No Content)
-});
 
 // DELETE /projects/:id
-app.delete("/projects/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
-    const idNum = Number(req.params.id);
-    // Ещё раз: Number(...) → Number.isFinite(...) → проверка > 0
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
+app.delete("/projects/:id",
+    async (req: ReqWithParams<IdParams>,
+           res: Response) => {
+        const idNum = Number(req.params.id);
+        // Ещё раз: Number(...) → Number.isFinite(...) → проверка > 0
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
 
-    const ok = await deleteProject(idNum);
-    if (!ok) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.sendStatus(HTTP.NO_CONTENT);
-});
+        const ok = await deleteProject(idNum);
+        if (!ok) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+        res.sendStatus(HTTP.NO_CONTENT);
+    });
 
-app.post("/projects/:projectId/tasks", async (req: ReqWithParams<ProjectIdParams>, res: Response) => {
-    const idNum = Number(req.params.projectId);
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
-    const {title, is_done} = req.body as NewTaskInput
-    if (!title) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
-    }
-    const created = await createTask(idNum, {title, is_done});
-    res.status(HTTP.CREATED).json(created);
-})
+// ✅
+app.post("/projects/:projectId/tasks",
+    async (req: ReqWithParams<ProjectIdParams>,
+           res: Response<PostTaskOut>) => {
+        const idNum = Number(req.params.projectId);
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
+        const {title, is_done} = req.body as NewTaskInput
+        if (!title) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+        }
+        const created = await createTask(idNum, {title, is_done});
+        res.status(HTTP.CREATED).json(taskOutMapper(created));
+    })
 
+// ✅
 app.get("/projects/:projectId/tasks",
-    async (req: ReqWithParams<ProjectIdParams>, res: Response<GetProjectTasksOut>) => {
+    async (req: ReqWithParams<ProjectIdParams>,
+           res: Response<GetProjectTasksOut>) => {
         const idNum = Number(req.params.projectId);
         if (!Number.isFinite(idNum) || idNum <= 0) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
@@ -219,40 +233,44 @@ app.get("/projects/:projectId/tasks",
         res.status(HTTP.OK).json(rows.map(taskOutMapper));
     })
 
-app.put("/tasks/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
-    const idNum = Number(req.params.id);
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
-        return;
-    }
+app.put("/tasks/:id",
+    async (req: ReqWithParams<IdParams>,
+           res: Response) => {
+        const idNum = Number(req.params.id);
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
+            return;
+        }
 
-    const {title, is_done} = req.body as UpdateTaskInput;
+        const {title, is_done} = req.body as UpdateTaskInput;
 
-    if (!title) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
-    }
+        if (!title) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+        }
 
-    const updated = await updateTask(idNum, {title, is_done});
-    if (!updated) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.status(HTTP.OK).json(updated);
-});
+        const updated = await updateTask(idNum, {title, is_done});
+        if (!updated) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+        res.status(HTTP.OK).json(updated);
+    });
 
-app.delete("/tasks/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
-    const idNum = Number(req.params.id);
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
-        return;
-    }
+app.delete("/tasks/:id",
+    async (req: ReqWithParams<IdParams>,
+           res: Response) => {
+        const idNum = Number(req.params.id);
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
+            return;
+        }
 
-    const ok = await deleteTask(idNum);
-    if (!ok) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.sendStatus(HTTP.NO_CONTENT);
-});
+        const ok = await deleteTask(idNum);
+        if (!ok) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+        res.sendStatus(HTTP.NO_CONTENT);
+    });
 
 app.listen(port, () => console.log(`✅ http://localhost:${port}`));
