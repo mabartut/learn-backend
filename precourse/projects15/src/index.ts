@@ -26,9 +26,9 @@ import {ReqWithBody, ReqWithParams, ReqWithParamsAndBody, ReqWithQuery} from "./
 import {GetProjectsIn} from "./models/GetProjectsIn";
 import {IdParams} from "./models/IdParams";
 import {ProjectIdParams} from "./models/ProjectIdParams";
-import {GetProjectsOut} from "./models/GetProjectsOut";
+import {GetProjectsOut, ProjectOut} from "./models/GetProjectsOut";
 import {GetProjectsWithTasksOut} from "./models/GetProjectsWithTasksOut";
-import {GetProjectTasksOut} from "./models/GetProjectTasksOut";
+import {GetProjectTasksOut, TaskOut} from "./models/GetProjectTasksOut";
 
 export const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -49,14 +49,15 @@ app.get("/", (_req: Request, res: Response<{ message: string }>) => {
     res.status(HTTP.OK).json({message: "Projects API is up"});
 });
 
-const projectOutMapper = (r: ProjectRowDb) => ({
+const projectOutMapper = (r: ProjectRowDb):ProjectOut => ({
     id: r.id,
     name: r.name,
     description: r.description,
     status: r.status,
     created_at: r.created_at
 })
-const taskOutMapper = (t: TaskRowDb) => ({
+
+const taskOutMapper = (t: TaskRowDb):TaskOut => ({
     id: t.id,
     project_id: t.project_id,
     title: t.title,
