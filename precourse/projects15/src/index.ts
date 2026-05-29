@@ -23,9 +23,12 @@ import {
     UpdateTaskInput
 } from "./repositories/project-with-tasks.repository";
 import {ReqWithBody, ReqWithParams, ReqWithParamsAndBody, ReqWithQuery} from "./types";
-import {GetProjectsModelIn} from "./models/GetProjectsModel";
-import {URIParamsIdModel} from "./models/URIParamsIdModel";
-import {URIParamsProjectIdModel} from "./models/URIParamsProjectIdModel";
+import {GetProjectsIn} from "./models/GetProjectsIn";
+import {IdParams} from "./models/IdParams";
+import {ProjectIdParams} from "./models/ProjectIdParams";
+import {GetProjectsOut} from "./models/GetProjectsOut";
+import {GetProjectsWithTasksOut} from "./models/GetProjectsWithTasksOut";
+import {GetProjectTasksOut} from "./models/GetProjectTasksOut";
 
 export const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -46,41 +49,60 @@ app.get("/", (_req: Request, res: Response<{ message: string }>) => {
     res.status(HTTP.OK).json({message: "Projects API is up"});
 });
 
+const projectOutMapper = (r: ProjectRowDb) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    status: r.status,
+    created_at: r.created_at
+})
+const taskOutMapper = (t: TaskRowDb) => ({
+    id: t.id,
+    project_id: t.project_id,
+    title: t.title,
+    is_done: t.is_done,
+    created_at: t.created_at
+})
+
 // GET /projects?name=...
-app.get("/projects", async (req: ReqWithQuery<GetProjectsModelIn>,
-                            res: Response<ProjectRowDb[]>) => {
+app.get("/projects", async (req: ReqWithQuery<GetProjectsIn>,
+                            res: Response<GetProjectsOut[]>) => {
     const {name, status} = req.query;
-    const rows = await listProjects({name, status});
-    res.status(HTTP.OK).json(rows);
+    const rows: ProjectRowDb[] = await listProjects({name, status});
+    res.status(HTTP.OK)
+
+    res.json(rows.map(projectOutMapper));
 });
 
 // GET /projects/:id
-app.get("/projects/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Response<ProjectRowDb | {
-    error: string
-}>) => {
-    // req.params.id — это СТРОКА. Сначала явно приводим к числу:
-    const idNum = Number(req.params.id);
-    // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
-    // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
-    // а Number.isFinite("123") → false (строго, без приведения).
-    // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
-    // Также это гораздо надежнее чем проверка с помощью IsNaN
-    if (!Number.isFinite(idNum) || idNum <= 0) {
-        res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
-        return;
-    }
+app.get("/projects/:id",
+    async (req: ReqWithParams<IdParams>,
+           res: Response<GetProjectsOut>) => {
+        // req.params.id — это СТРОКА. Сначала явно приводим к числу:
+        const idNum = Number(req.params.id);
+        // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
+        // ВАЖНО: глобальный isFinite("123") → true (неявно приводит к числу),
+        // а Number.isFinite("123") → false (строго, без приведения).
+        // Поэтому делаем два шага: Number(...) → Number.isFinite(idNum)
+        // Также это гораздо надежнее чем проверка с помощью IsNaN
+        if (!Number.isFinite(idNum) || idNum <= 0) {
+            res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
+            return;
+        }
 
-    const row = await getProjectById(idNum);
-    if (!row) {
-        res.sendStatus(HTTP.NOT_FOUND);
-        return;
-    }
-    res.status(HTTP.OK).json(row);
-});
+        const row: ProjectRowDb | null = await getProjectById(idNum);
+        if (!row) {
+            res.sendStatus(HTTP.NOT_FOUND);
+            return;
+        }
+
+        res.status(HTTP.OK).json(projectOutMapper(row));
+    });
 
 // GET /projects/:id/with-tasks
 app.get("/projects/:id/with-tasks",
-    async (req: ReqWithParams<URIParamsIdModel>, res: Response<ProjectWithTasks | { error: string }>) => {
+    async (req: ReqWithParams<IdParams>,
+           res: Response<GetProjectsWithTasksOut>) => {
         // req.params.id — это СТРОКА. Сначала явно приводим к числу:
         const idNum = Number(req.params.id);
 
@@ -94,12 +116,20 @@ app.get("/projects/:id/with-tasks",
             return;
         }
 
-        const row = await getProjectWithTasks2(idNum);
+        const row: ProjectWithTasks | null = await getProjectWithTasks2(idNum);
+
         if (!row) {
             res.sendStatus(HTTP.NOT_FOUND);
             return;
         }
-        res.status(HTTP.OK).json(row);
+
+        res.status(HTTP.OK)
+
+        let result: GetProjectsWithTasksOut = {
+            project: projectOutMapper(row.project),
+            tasks: row.tasks.map(taskOutMapper)
+        }
+        res.json(result);
     });
 
 // POST /projects   { name, description?, status? }
@@ -120,7 +150,7 @@ app.post("/projects", async (req: ReqWithBody<NewProjectInput>, res: Response) =
 });
 
 // PUT /projects/:id   { name, description?, status? }
-app.put("/projects/:id", async (req: ReqWithParamsAndBody<URIParamsIdModel, UpdateProjectInput>, res: Response) => {
+app.put("/projects/:id", async (req: ReqWithParamsAndBody<IdParams, UpdateProjectInput>, res: Response) => {
     const idNum = Number(req.params.id);
     if (!Number.isFinite(idNum) || idNum <= 0) {
         res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
@@ -147,7 +177,7 @@ app.put("/projects/:id", async (req: ReqWithParamsAndBody<URIParamsIdModel, Upda
 });
 
 // DELETE /projects/:id
-app.delete("/projects/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Response) => {
+app.delete("/projects/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
     const idNum = Number(req.params.id);
     // Ещё раз: Number(...) → Number.isFinite(...) → проверка > 0
     if (!Number.isFinite(idNum) || idNum <= 0) {
@@ -163,7 +193,7 @@ app.delete("/projects/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Re
     res.sendStatus(HTTP.NO_CONTENT);
 });
 
-app.post("/projects/:projectId/tasks", async (req: ReqWithParams<URIParamsProjectIdModel>, res: Response) => {
+app.post("/projects/:projectId/tasks", async (req: ReqWithParams<ProjectIdParams>, res: Response) => {
     const idNum = Number(req.params.projectId);
     if (!Number.isFinite(idNum) || idNum <= 0) {
         res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
@@ -178,17 +208,17 @@ app.post("/projects/:projectId/tasks", async (req: ReqWithParams<URIParamsProjec
 })
 
 app.get("/projects/:projectId/tasks",
-    async (req: ReqWithParams<URIParamsProjectIdModel>, res: Response<TaskRowDb[] | { error: string }>) => {
+    async (req: ReqWithParams<ProjectIdParams>, res: Response<GetProjectTasksOut>) => {
         const idNum = Number(req.params.projectId);
         if (!Number.isFinite(idNum) || idNum <= 0) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
             return;
         }
         const rows = await getProjectTasks(idNum);
-        res.status(HTTP.OK).json(rows);
+        res.status(HTTP.OK).json(rows.map(taskOutMapper));
     })
 
-app.put("/tasks/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Response) => {
+app.put("/tasks/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
     const idNum = Number(req.params.id);
     if (!Number.isFinite(idNum) || idNum <= 0) {
         res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
@@ -209,7 +239,7 @@ app.put("/tasks/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Response
     res.status(HTTP.OK).json(updated);
 });
 
-app.delete("/tasks/:id", async (req: ReqWithParams<URIParamsIdModel>, res: Response) => {
+app.delete("/tasks/:id", async (req: ReqWithParams<IdParams>, res: Response) => {
     const idNum = Number(req.params.id);
     if (!Number.isFinite(idNum) || idNum <= 0) {
         res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});

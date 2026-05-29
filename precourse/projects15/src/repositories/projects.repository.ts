@@ -8,12 +8,12 @@ import {pool} from "../db";
  * Поэтому типизируем как Date
  */
 export type ProjectRowDb = {
-    id: number;
-    name: string;
-    description: string;
-    status: "todo" | "in_progress" | "done";
-    created_at: Date;
-};
+    id: number
+    name: string
+    description: string
+    status: "todo" | "in_progress" | "done"
+    created_at: Date
+}
 
 /**
  * Тело запроса при создании проекта (payload клиента).

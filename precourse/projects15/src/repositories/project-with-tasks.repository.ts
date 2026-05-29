@@ -31,7 +31,7 @@ export type UpdateTaskInput = {
 export type ProjectWithTasks = {
     project: ProjectRowDb;
     tasks: TaskRowDb[];
-};
+}
 
 //заморочено, но в один запрос
 export async function getProjectWithTasks1(
