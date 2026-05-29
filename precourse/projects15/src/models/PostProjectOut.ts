@@ -1,6 +1,6 @@
 import {ProjectOut} from "./GetProjectsOut";
 
 /**
- * Part of project data
+ * Add new project
  */
 export type PostProjectOut = ProjectOut | { error: string };

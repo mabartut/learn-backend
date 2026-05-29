@@ -31,6 +31,9 @@ import {GetProjectsWithTasksOut} from "./models/GetProjectsWithTasksOut";
 import {GetProjectTasksOut, TaskOut} from "./models/GetProjectTasksOut";
 import {PostProjectOut} from "./models/PostProjectOut";
 import {PostTaskOut} from "./models/PostTaskOut";
+import {PutProjectOut} from "./models/PutProjectOut";
+import {PutTaskOut} from "./models/PutTaskOut";
+import {GetProjectByIdOut} from "./models/GetProjectByIdOut";
 
 export const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -70,7 +73,7 @@ const taskOutMapper = (t: TaskRowDb): TaskOut => ({
 // ✅ GET /projects?name=...
 app.get("/projects",
     async (req: ReqWithQuery<GetProjectsIn>,
-           res: Response<GetProjectsOut[]>) => {
+           res: Response<GetProjectsOut>) => {
         const {name, status} = req.query;
         const rows: ProjectRowDb[] = await listProjects({name, status});
         res.status(HTTP.OK)
@@ -81,7 +84,7 @@ app.get("/projects",
 // ✅ GET /projects/:id
 app.get("/projects/:id",
     async (req: ReqWithParams<IdParams>,
-           res: Response<GetProjectsOut>) => {
+           res: Response<GetProjectByIdOut>) => {
         // req.params.id — это СТРОКА. Сначала явно приводим к числу:
         const idNum = Number(req.params.id);
         // Number.isFinite проверяет «настоящее» конечное число (не NaN/Infinity).
@@ -155,10 +158,10 @@ app.post("/projects",
         res.status(HTTP.CREATED).json(projectOutMapper(created));
     });
 
-// PUT /projects/:id   { name, description?, status? }
+// ✅ PUT /projects/:id   { name, description?, status? }
 app.put("/projects/:id",
     async (req: ReqWithParamsAndBody<IdParams, UpdateProjectInput>,
-           res: Response) => {
+           res: Response<PutProjectOut>) => {
         const idNum = Number(req.params.id);
         if (!Number.isFinite(idNum) || idNum <= 0) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid project ID"});
@@ -181,13 +184,13 @@ app.put("/projects/:id",
             res.sendStatus(HTTP.NOT_FOUND);
             return;
         }
-        res.status(HTTP.OK).json(updated); // (можно 204 No Content)
+        res.status(HTTP.OK).json(projectOutMapper(updated)); // (можно 204 No Content)
     });
 
-// DELETE /projects/:id
+// ✅ DELETE /projects/:id
 app.delete("/projects/:id",
     async (req: ReqWithParams<IdParams>,
-           res: Response) => {
+           res: Response<{}>) => {
         const idNum = Number(req.params.id);
         // Ещё раз: Number(...) → Number.isFinite(...) → проверка > 0
         if (!Number.isFinite(idNum) || idNum <= 0) {
@@ -215,6 +218,7 @@ app.post("/projects/:projectId/tasks",
         const {title, is_done} = req.body as NewTaskInput
         if (!title) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+            return;
         }
         const created = await createTask(idNum, {title, is_done});
         res.status(HTTP.CREATED).json(taskOutMapper(created));
@@ -233,9 +237,10 @@ app.get("/projects/:projectId/tasks",
         res.status(HTTP.OK).json(rows.map(taskOutMapper));
     })
 
+// ✅
 app.put("/tasks/:id",
     async (req: ReqWithParams<IdParams>,
-           res: Response) => {
+           res: Response<PutTaskOut>) => {
         const idNum = Number(req.params.id);
         if (!Number.isFinite(idNum) || idNum <= 0) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});
@@ -246,6 +251,7 @@ app.put("/tasks/:id",
 
         if (!title) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid title"});
+            return;
         }
 
         const updated = await updateTask(idNum, {title, is_done});
@@ -253,12 +259,13 @@ app.put("/tasks/:id",
             res.sendStatus(HTTP.NOT_FOUND);
             return;
         }
-        res.status(HTTP.OK).json(updated);
+        res.status(HTTP.OK).json(taskOutMapper(updated));
     });
 
+// ✅
 app.delete("/tasks/:id",
     async (req: ReqWithParams<IdParams>,
-           res: Response) => {
+           res: Response<{}>) => {
         const idNum = Number(req.params.id);
         if (!Number.isFinite(idNum) || idNum <= 0) {
             res.status(HTTP.BAD_REQUEST).json({error: "Invalid task ID"});

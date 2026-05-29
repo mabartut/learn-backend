@@ -1,8 +1,8 @@
 /**
- * Part of project data
+ * Get projects
  */
 export type GetProjectsOut =
-    ProjectOut | { error: string };
+    ProjectOut [] | { error: string };
 
 export type ProjectOut = {
     id: number
