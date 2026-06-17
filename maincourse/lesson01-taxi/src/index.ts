@@ -1,7 +1,7 @@
 import express from 'express';
 import { setupApp } from './setup-app';
 
-const app = express();
+export const app = express();
 setupApp(app);
 
 const port = process.env.PORT || 3000;
