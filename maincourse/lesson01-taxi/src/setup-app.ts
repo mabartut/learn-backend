@@ -1,48 +1,69 @@
-import express, { Express } from 'express';
+import express, { Express, Request, Response } from 'express';
 import { db } from './db/in-memory.db';
+import { HttpStatus } from './core/types/http-statuses';
+import { vehicleInputDtoValidation } from './drivers/validation/vehicleInputDtoValidation';
+import { createErrorMessages } from './core/utils/error.utils';
 import { Driver } from './drivers/types/driver';
-import { HttpStatus } from './drivers/types/http-statuses';
 
 export const setupApp = (app: Express) => {
   app.use(express.json());
 
-  app.delete('/testing/all-data', (req, res) => {
-    db.drivers = [];
-    res.sendStatus(HttpStatus.NoContent);
-  });
-
-  app.get('/', (req, res) => {
+  app.get('/', (req: Request, res: Response) => {
     res.status(200).send('Hello world!');
   });
 
-  app.get('/drivers', (req, res) => {
-    // возвращаем всех водителей
+  //--------------------------------
+  app.get('/drivers', (req: Request, res: Response) => {
     res.status(200).send(db.drivers);
   });
+  app.post('/drivers', (req: Request, res: Response) => {
+    const errors = vehicleInputDtoValidation(req.body);
 
-  app.get('/drivers/:id', (req, res) => {
-    // ищем водителя в бд по id
-    const driver = db.drivers.find((d) => d.id === +req.params.id);
-    if (!driver) {
-      return res.status(404).send({ message: 'Driver not found' });
+    if (errors.length > 0) {
+      res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
+      return;
     }
-    // возвращаем ответ
-    res.status(200).send(driver);
-  });
 
-  app.post('/drivers', (req, res) => {
-    //1) проверяем приходящие данные на валидность
-    //2) создаем newDriver
     const newDriver: Driver = {
       id: db.drivers.length ? db.drivers[db.drivers.length - 1].id + 1 : 1,
+      name: req.body.name,
+      phoneNumber: req.body.phoneNumber,
+      email: req.body.email,
+      vehicleMake: req.body.vehicleMake,
+      vehicleModel: req.body.vehicleModel,
+      vehicleYear: req.body.vehicleYear,
+      vehicleLicensePlate: req.body.vehicleLicensePlate,
+      vehicleDescription: req.body.vehicleDescription,
+      vehicleFeatures: req.body.vehicleFeatures,
       createdAt: new Date(),
-      ...req.body,
     };
-    //3) добавляем newDriver в БД
     db.drivers.push(newDriver);
-    //4) возвращаем ответ
-    res.status(201).send(newDriver);
+    res.status(HttpStatus.Created).send(newDriver);
   });
+  app.get('/drivers/:id', (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    const driver = db.drivers.find((d) => d.id === id);
+
+    if (!driver) {
+      res
+        .status(HttpStatus.NotFound)
+        .send(
+          createErrorMessages([{ field: 'id', message: 'Driver not found' }]),
+        );
+      return;
+    }
+    res.status(200).send(driver);
+  });
+  //--------------------------------
+
+  app.get('/testing', (req: Request, res: Response) => {
+    res.status(200).send('testing url');
+  });
+  app.delete('/testing/all-data', (req: Request, res: Response) => {
+    db.drivers = [];
+    res.sendStatus(HttpStatus.NoContent);
+  });
+  //--------------------------------
 
   return app;
 };

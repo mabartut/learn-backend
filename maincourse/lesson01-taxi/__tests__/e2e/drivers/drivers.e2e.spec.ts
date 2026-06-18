@@ -3,7 +3,7 @@ import { app } from '../../../src';
 import express from 'express';
 import { setupApp } from '../../../src/setup-app';
 import { DriverInputDto } from '../../../src/drivers/dto/drivers.input-dto';
-import { HttpStatus } from '../../../src/drivers/types/http-statuses';
+import { HttpStatus } from '../../../src/core/types/http-statuses';
 
 describe('GET /', () => {
   it("should return 'Hello world!'", async () => {
