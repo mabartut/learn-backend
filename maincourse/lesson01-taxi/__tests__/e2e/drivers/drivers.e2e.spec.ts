@@ -1,11 +1,13 @@
 import request from 'supertest';
-import { app } from '../../../src';
 import express from 'express';
 import { setupApp } from '../../../src/setup-app';
 import { DriverInputDto } from '../../../src/drivers/dto/drivers.input-dto';
 import { HttpStatus } from '../../../src/core/types/http-statuses';
 
 describe('GET /', () => {
+  const app = express();
+  setupApp(app);
+
   it("should return 'Hello world!'", async () => {
     const res = await request(app).get('/');
     expect(res.status).toBe(200);

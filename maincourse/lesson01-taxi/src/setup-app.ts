@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import { driversRouter } from './drivers/routers/drivers.router';
 import { testingRouter } from './testing/routers/testing.router';
+import { setupSwagger } from './core/swagger/setup-swagger';
 
 export const setupApp = (app: Express) => {
   app.use(express.json());
@@ -11,6 +12,8 @@ export const setupApp = (app: Express) => {
 
   app.use('/drivers', driversRouter);
   app.use('/testing', testingRouter);
+
+  setupSwagger(app);
 
   return app;
 };
