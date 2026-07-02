@@ -96,5 +96,6 @@ const arrIncludes = [1, 2, 3, 4, 5]
 console.log('arrIncludes?', arrIncludes.includes(3))
 console.log('arrIncludes?', arrIncludes.includes(0))
 
-
-
+let str = 'abc-qwe-rt-tyu-xcvgdf'
+console.log('str.split=', str.split('-'))
+console.log('str.split2=', str.split('-', 2))
